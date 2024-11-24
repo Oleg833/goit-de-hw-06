@@ -33,7 +33,7 @@ df = (
         "kafka.sasl.jaas.config",
         'org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="VawEzo1ikLtrA8Ug8THa";',
     )
-    .option("subscribe", "building_sensors_volodymyr17")
+    .option("subscribe", "building_sensors_oleh47")
     .option("startingOffsets", "earliest")
     .option("maxOffsetsPerTrigger", "600")
     .load()
