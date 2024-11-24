@@ -73,28 +73,24 @@ avg_stats = (
     .drop("topic")
 )
 
-# # Для дебагінгу, перевіримо, що дані декодуються правильно
-# query = (
-#     avg_stats.writeStream.outputMode("append")
-#     .format("console")
-#     .option("truncate", False)
-#     .start()
-# )
-
-# query.awaitTermination()
 
 all_alerts = avg_stats.crossJoin(alerts_df)
 
-# print("All done")
 
-# all_alerts.show(15)
+# valid_alerts = (
+#     all_alerts.where("t_avg > temperature_min AND t_avg < temperature_max")
+#     .unionAll(all_alerts.where("h_avg > humidity_min AND h_avg < humidity_max"))
+#     .withColumn("timestamp", lit(str(datetime.datetime.now())))
+#     .drop("id", "humidity_min", "humidity_max", "temperature_min", "temperature_max")
+# )
 
 valid_alerts = (
     all_alerts.where("t_avg > temperature_min AND t_avg < temperature_max")
-    .unionAll(all_alerts.where("h_avg > humidity_min AND h_avg < humidity_max"))
-    .withColumn("timestamp", lit(str(datetime.datetime.now())))
+    .union(all_alerts.where("h_avg > humidity_min AND h_avg < humidity_max"))
+    .withColumn("timestamp", current_timestamp())  # Використання динамічного timestamp
     .drop("id", "humidity_min", "humidity_max", "temperature_min", "temperature_max")
 )
+
 
 # Для дебагінгу, перевіримо, що дані декодуються правильно
 query = (
