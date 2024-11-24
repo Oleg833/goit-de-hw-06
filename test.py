@@ -35,7 +35,7 @@ df = (
     )
     .option("subscribe", "building_sensors_volodymyr17")
     .option("startingOffsets", "earliest")
-    .option("maxOffsetsPerTrigger", "300")
+    .option("maxOffsetsPerTrigger", "600")
     .load()
 )
 
@@ -49,9 +49,10 @@ row_count_query = (
         )
     )
     .start()
+    .awaitTermination()
 )
 
-row_count_query.awaitTermination()
+# row_count_query.awaitTermination()
 
 # query = (
 #     df.writeStream.outputMode("append")

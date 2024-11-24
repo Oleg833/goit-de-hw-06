@@ -35,7 +35,7 @@ df = (
     )
     .option("subscribe", "building_sensors_volodymyr17")
     .option("startingOffsets", "earliest")
-    .option("maxOffsetsPerTrigger", "300")
+    .option("maxOffsetsPerTrigger", "600")
     .load()
 )
 
@@ -49,50 +49,6 @@ json_schema = StructType(
     ]
 )
 
-# processed_df = (
-#     df.selectExpr(
-#         "CAST(key AS STRING) AS key_deserialized",  # Перетворення ключа на строку
-#         "CAST(value AS STRING) AS value_deserialized",  # Перетворення значення на строку
-#     )
-#     .drop("key", "value")  # Заміна старих колонок на нові
-#     .withColumnRenamed("key_deserialized", "key")
-#     .withColumn(
-#         "value_json", from_json(col("value_deserialized"), json_schema)
-#     )  # Декодування JSON
-#     .withColumn(
-#         "timestamp",
-#         to_timestamp(
-#             col("value_json.timestamp"), "yyyy-MM-dd HH:mm:ss"
-#         ),  # Безпосереднє перетворення рядка у timestamp
-#     )
-#     .withWatermark("timestamp", "10 seconds")
-#     .groupBy(window(col("timestamp"), window_duration, sliding_interval))
-#     .agg(
-#         avg("value_json.temperature").alias("t_avg"),
-#         avg("value_json.humidity").alias("h_avg"),
-#     )
-#     .drop("topic")
-# )
-
-# # Для дебагінгу, перевіримо, що дані декодуються правильно
-# query = (
-#     processed_df.writeStream.outputMode("append")
-#     .format("console")
-#     .option("truncate", False)
-#     .start()
-# )
-
-# query.awaitTermination()
-
-
-json_schema = StructType(
-    [
-        StructField("sensor_id", IntegerType(), True),
-        StructField("timestamp", StringType(), True),
-        StructField("temperature", IntegerType(), True),
-        StructField("humidity", IntegerType(), True),
-    ]
-)
 
 avg_stats = (
     df.selectExpr(
@@ -126,14 +82,6 @@ valid_alerts = (
     .drop("id", "humidity_min", "humidity_max", "temperature_min", "temperature_max")
 )
 
-# # Для дебагінгу. Принт проміжного резульату.
-# displaying_df = (
-#     valid_alerts.writeStream.trigger(processingTime="1000 seconds")
-#     .outputMode("append")
-#     .format("console")
-#     .start()
-#     .awaitTermination()
-# )
 
 # Для дебагінгу, перевіримо, що дані декодуються правильно
 query = (
@@ -166,6 +114,7 @@ query = (
 #     .format("console")
 #     .option("truncate", False)
 #     .start()
+#     .awaitTermination()
 # )
 
 # query.awaitTermination()
