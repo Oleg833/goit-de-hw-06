@@ -39,62 +39,39 @@ df = (
     .load()
 )
 
-# Для дебагінгу, перевіримо, що дані декодуються правильно
-row_count_query = (
-    df.writeStream.outputMode("append")
-    .format("console")
-    .foreachBatch(
-        lambda batch_df, batch_id: print(
-            f"Batch {batch_id} has {batch_df.count()} rows"
-        )
-    )
-    .start()
-    .awaitTermination()
+
+json_schema = StructType(
+    [
+        StructField("sensor_id", IntegerType(), True),
+        StructField("timestamp", StringType(), True),
+        StructField("temperature", IntegerType(), True),
+        StructField("humidity", IntegerType(), True),
+    ]
 )
 
-# row_count_query.awaitTermination()
-
-# query = (
-#     df.writeStream.outputMode("append")
-#     .format("console")
-#     .option("truncate", False)
-#     .start()
-# )
-
-# query.awaitTermination()
-
-# json_schema = StructType(
-#     [
-#         StructField("sensor_id", IntegerType(), True),
-#         StructField("timestamp", StringType(), True),
-#         StructField("temperature", IntegerType(), True),
-#         StructField("humidity", IntegerType(), True),
-#     ]
-# )
-
-# avg_stats = (
-#     df.selectExpr(
-#         "CAST(key AS STRING) AS key_deserialized",
-#         "CAST(value AS STRING) AS value_deserialized",
-#         "*",
-#     )
-#     .drop("key", "value")
-#     .withColumnRenamed("key_deserialized", "key")
-#     .withColumn("value_json", from_json(col("value_deserialized"), json_schema))
-#     .withColumn(
-#         "timestamp",
-#         to_timestamp(
-#             col("value_json.timestamp"), "yyyy-MM-dd HH:mm:ss"
-#         ),  # Безпосереднє перетворення рядка у timestamp
-#     )
-#     .withWatermark("timestamp", "10 seconds")
-#     .groupBy(window(col("timestamp"), window_duration, sliding_interval))
-#     .agg(
-#         avg("value_json.temperature").alias("t_avg"),
-#         avg("value_json.humidity").alias("h_avg"),
-#     )
-#     .drop("topic")
-# )
+avg_stats = (
+    df.selectExpr(
+        "CAST(key AS STRING) AS key_deserialized",
+        "CAST(value AS STRING) AS value_deserialized",
+        "*",
+    )
+    .drop("key", "value")
+    .withColumnRenamed("key_deserialized", "key")
+    .withColumn("value_json", from_json(col("value_deserialized"), json_schema))
+    .withColumn(
+        "timestamp",
+        to_timestamp(
+            col("value_json.timestamp"), "yyyy-MM-dd HH:mm:ss"
+        ),  # Безпосереднє перетворення рядка у timestamp
+    )
+    .withWatermark("timestamp", "10 seconds")
+    .groupBy(window(col("timestamp"), window_duration, sliding_interval))
+    .agg(
+        avg("value_json.temperature").alias("t_avg"),
+        avg("value_json.humidity").alias("h_avg"),
+    )
+    .drop("topic")
+)
 
 # # Для дебагінгу, перевіримо, що дані декодуються правильно
 # query = (
@@ -105,3 +82,59 @@ row_count_query = (
 # )
 
 # query.awaitTermination()
+
+all_alerts = avg_stats.crossJoin(alerts_df)
+
+# print("All done")
+
+# all_alerts.show(15)
+
+valid_alerts = (
+    all_alerts.where("t_avg > temperature_min AND t_avg < temperature_max")
+    .unionAll(all_alerts.where("h_avg > humidity_min AND h_avg < humidity_max"))
+    .withColumn("timestamp", lit(str(datetime.datetime.now())))
+    .drop("id", "humidity_min", "humidity_max", "temperature_min", "temperature_max")
+)
+
+# Для дебагінгу, перевіримо, що дані декодуються правильно
+query = (
+    valid_alerts.writeStream.outputMode("append")
+    .format("console")
+    .option("truncate", False)
+    .start()
+)
+
+query.awaitTermination()
+
+# uuid_udf = udf(lambda: str(uuid.uuid4()), StringType())
+
+# prepare_to_kafka_df = valid_alerts.withColumn("key", uuid_udf()).select(
+#     col("key"),
+#     to_json(
+#         struct(
+#             col("window"),
+#             col("t_avg"),
+#             col("h_avg"),
+#             col("code"),
+#             col("message"),
+#             col("timestamp"),
+#         )
+#     ).alias("value"),
+# )
+
+# query = (
+#     prepare_to_kafka_df.writeStream.trigger(processingTime="30 seconds")
+#     .outputMode("update")
+#     .format("kafka")
+#     .option("kafka.bootstrap.servers", "77.81.230.104:9092")
+#     .option("topic", "avg_alerts")
+#     .option("kafka.security.protocol", "SASL_PLAINTEXT")
+#     .option("kafka.sasl.mechanism", "PLAIN")
+#     .option(
+#         "kafka.sasl.jaas.config",
+#         "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
+#     )
+#     .option("checkpointLocation", "/tmp/checkpoints-7")
+#     .start()
+#     .awaitTermination()
+# )
