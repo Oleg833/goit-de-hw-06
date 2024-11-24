@@ -39,6 +39,52 @@ df = (
     .load()
 )
 
+# Перетворення ключа та значення
+json_schema = StructType(
+    [
+        StructField("sensor_id", IntegerType(), True),
+        StructField("timestamp", StringType(), True),
+        StructField("temperature", IntegerType(), True),
+        StructField("humidity", IntegerType(), True),
+    ]
+)
+
+# processed_df = (
+#     df.selectExpr(
+#         "CAST(key AS STRING) AS key_deserialized",  # Перетворення ключа на строку
+#         "CAST(value AS STRING) AS value_deserialized",  # Перетворення значення на строку
+#     )
+#     .drop("key", "value")  # Заміна старих колонок на нові
+#     .withColumnRenamed("key_deserialized", "key")
+#     .withColumn(
+#         "value_json", from_json(col("value_deserialized"), json_schema)
+#     )  # Декодування JSON
+#     .withColumn(
+#         "timestamp",
+#         to_timestamp(
+#             col("value_json.timestamp"), "yyyy-MM-dd HH:mm:ss"
+#         ),  # Безпосереднє перетворення рядка у timestamp
+#     )
+#     .withWatermark("timestamp", "10 seconds")
+#     .groupBy(window(col("timestamp"), window_duration, sliding_interval))
+#     .agg(
+#         avg("value_json.temperature").alias("t_avg"),
+#         avg("value_json.humidity").alias("h_avg"),
+#     )
+#     .drop("topic")
+# )
+
+# # Для дебагінгу, перевіримо, що дані декодуються правильно
+# query = (
+#     processed_df.writeStream.outputMode("append")
+#     .format("console")
+#     .option("truncate", False)
+#     .start()
+# )
+
+# query.awaitTermination()
+
+
 json_schema = StructType(
     [
         StructField("sensor_id", IntegerType(), True),
@@ -57,10 +103,11 @@ avg_stats = (
     .drop("key", "value")
     .withColumnRenamed("key_deserialized", "key")
     .withColumn("value_json", from_json(col("value_deserialized"), json_schema))
-    .withColumn(
-        "timestamp",
-        from_unixtime(col("value_json.timestamp").cast(DoubleType())).cast("timestamp"),
-    )
+    # .withColumn(
+    #     "timestamp",
+    #     from_unixtime(col("value_json.timestamp").cast(DoubleType())).cast("timestamp"),
+    # )
+    .withColumn("timestamp", col("value_json.timestamp").cast("timestamp"))
     .withWatermark("timestamp", "10 seconds")
     .groupBy(window(col("timestamp"), window_duration, sliding_interval))
     .agg(
@@ -79,11 +126,20 @@ valid_alerts = (
     .drop("id", "humidity_min", "humidity_max", "temperature_min", "temperature_max")
 )
 
-# Для дебагінгу. Принт проміжного резульату.
-displaying_df = (
-    valid_alerts.writeStream.trigger(processingTime="10 seconds")
-    .outputMode("update")
+# # Для дебагінгу. Принт проміжного резульату.
+# displaying_df = (
+#     valid_alerts.writeStream.trigger(processingTime="1000 seconds")
+#     .outputMode("append")
+#     .format("console")
+#     .start()
+#     .awaitTermination()
+# )
+
+# Для дебагінгу, перевіримо, що дані декодуються правильно
+query = (
+    valid_alerts.writeStream.outputMode("append")
     .format("console")
+    .option("truncate", False)
     .start()
     .awaitTermination()
 )
@@ -103,6 +159,16 @@ displaying_df = (
 #         )
 #     ).alias("value"),
 # )
+
+# # Для дебагінгу, перевіримо, що дані декодуються правильно
+# query = (
+#     prepare_to_kafka_df.writeStream.outputMode("append")
+#     .format("console")
+#     .option("truncate", False)
+#     .start()
+# )
+
+# query.awaitTermination()
 
 # query = (
 #     prepare_to_kafka_df.writeStream.trigger(processingTime="30 seconds")
