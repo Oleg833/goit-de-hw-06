@@ -40,14 +40,27 @@ df = (
 )
 
 # Для дебагінгу, перевіримо, що дані декодуються правильно
-query = (
+row_count_query = (
     df.writeStream.outputMode("append")
     .format("console")
-    .option("truncate", False)
+    .foreachBatch(
+        lambda batch_df, batch_id: print(
+            f"Batch {batch_id} has {batch_df.count()} rows"
+        )
+    )
     .start()
 )
 
-query.awaitTermination()
+row_count_query.awaitTermination()
+
+# query = (
+#     df.writeStream.outputMode("append")
+#     .format("console")
+#     .option("truncate", False)
+#     .start()
+# )
+
+# query.awaitTermination()
 
 # json_schema = StructType(
 #     [
