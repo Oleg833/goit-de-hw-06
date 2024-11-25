@@ -84,12 +84,21 @@ valid_alerts = (
 
 
 # Виведення результатів у консоль
+# console_query = (
+#     valid_alerts.writeStream.outputMode("append")  # Виводити нові дані
+#     .format("console")  # Формат виводу — консоль
+#     .option("truncate", False)  # Показувати повні дані без скорочення
+#     .start()
+# )
+
 console_query = (
-    valid_alerts.writeStream.outputMode("append")  # Виводити нові дані
+    valid_alerts.writeStream.outputMode("append")  # Записувати тільки нові дані
     .format("console")  # Формат виводу — консоль
     .option("truncate", False)  # Показувати повні дані без скорочення
+    .trigger(once=True)  # Виконати обробку лише один раз
     .start()
 )
+
 
 # Збереження результатів у файл (у поточний каталог)
 file_query = (
@@ -105,7 +114,7 @@ file_query = (
 )
 
 # Чекати на завершення обох запитів
-console_query.awaitTermination()
+console_query.awaitTermination(1000)  # Очікувати завершення запиту протягом 1000 секунд
 file_query.awaitTermination()
 
 
