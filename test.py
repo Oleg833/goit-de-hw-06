@@ -76,31 +76,33 @@ avg_stats = (
 
 all_alerts = avg_stats.crossJoin(alerts_df)
 
-
-# valid_alerts = (
-#     all_alerts.where("t_avg > temperature_min AND t_avg < temperature_max")
-#     .unionAll(all_alerts.where("h_avg > humidity_min AND h_avg < humidity_max"))
-#     .withColumn("timestamp", lit(str(datetime.datetime.now())))
-#     .drop("id", "humidity_min", "humidity_max", "temperature_min", "temperature_max")
-# )
-
-valid_alerts = (
-    all_alerts.where("t_avg > temperature_min AND t_avg < temperature_max")
-    .union(all_alerts.where("h_avg > humidity_min AND h_avg < humidity_max"))
-    .withColumn("timestamp", current_timestamp())  # Використання динамічного timestamp
-    .drop("id", "humidity_min", "humidity_max", "temperature_min", "temperature_max")
-)
-
-
-# Для дебагінгу, перевіримо, що дані декодуються правильно
-query = (
-    valid_alerts.writeStream.outputMode("append")
+query_all_alerts = (
+    all_alerts.writeStream.outputMode("append")
     .format("console")
     .option("truncate", False)
     .start()
 )
 
-query.awaitTermination()
+query_all_alerts.awaitTermination()
+
+
+# valid_alerts = (
+#     all_alerts.where("t_avg > temperature_min AND t_avg < temperature_max")
+#     .union(all_alerts.where("h_avg > humidity_min AND h_avg < humidity_max"))
+#     .withColumn("timestamp", current_timestamp())  # Використання динамічного timestamp
+#     .drop("id", "humidity_min", "humidity_max", "temperature_min", "temperature_max")
+# )
+
+
+# # Для дебагінгу, перевіримо, що дані декодуються правильно
+# query = (
+#     valid_alerts.writeStream.outputMode("append")
+#     .format("console")
+#     .option("truncate", False)
+#     .start()
+# )
+
+# query.awaitTermination()
 
 # uuid_udf = udf(lambda: str(uuid.uuid4()), StringType())
 

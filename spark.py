@@ -77,20 +77,37 @@ all_alerts = avg_stats.crossJoin(alerts_df)
 
 valid_alerts = (
     all_alerts.where("t_avg > temperature_min AND t_avg < temperature_max")
-    .unionAll(all_alerts.where("h_avg > humidity_min AND h_avg < humidity_max"))
-    .withColumn("timestamp", lit(str(datetime.datetime.now())))
+    .union(all_alerts.where("h_avg > humidity_min AND h_avg < humidity_max"))
+    .withColumn("timestamp", current_timestamp())
     .drop("id", "humidity_min", "humidity_max", "temperature_min", "temperature_max")
 )
 
 
-# Для дебагінгу, перевіримо, що дані декодуються правильно
-query = (
-    valid_alerts.writeStream.outputMode("append")
-    .format("console")
-    .option("truncate", False)
+# Виведення результатів у консоль
+console_query = (
+    valid_alerts.writeStream.outputMode("append")  # Виводити нові дані
+    .format("console")  # Формат виводу — консоль
+    .option("truncate", False)  # Показувати повні дані без скорочення
     .start()
-    .awaitTermination()
 )
+
+# Збереження результатів у файл (у поточний каталог)
+file_query = (
+    valid_alerts.writeStream.outputMode("append")  # Записувати тільки нові дані
+    .format("csv")  # Зберігати у форматі CSV
+    .option(
+        "path", "./valid_alerts_output"
+    )  # Папка для збереження результатів у поточному каталозі
+    .option(
+        "checkpointLocation", "./checkpoints/valid_alerts"
+    )  # Папка для збереження checkpoint-ів
+    .start()
+)
+
+# Чекати на завершення обох запитів
+console_query.awaitTermination()
+file_query.awaitTermination()
+
 
 # uuid_udf = udf(lambda: str(uuid.uuid4()), StringType())
 
