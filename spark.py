@@ -113,17 +113,17 @@ valid_alerts = (
 
 
 # Збереження результатів у файл (у поточний каталог)
-file_query = (
-    valid_alerts.writeStream.outputMode("append")  # Записувати тільки нові дані
-    .format("csv")  # Зберігати у форматі CSV
-    .option(
-        "path", "./valid_alerts_output"
-    )  # Папка для збереження результатів у поточному каталозі
-    .option(
-        "checkpointLocation", "./checkpoints/valid_alerts"
-    )  # Папка для збереження checkpoint-ів
-    .start()
-)
+# file_query = (
+#     valid_alerts.writeStream.outputMode("append")  # Записувати тільки нові дані
+#     .format("csv")  # Зберігати у форматі CSV
+#     .option(
+#         "path", "./valid_alerts_output"
+#     )  # Папка для збереження результатів у поточному каталозі
+#     .option(
+#         "checkpointLocation", "./checkpoints/valid_alerts"
+#     )  # Папка для збереження checkpoint-ів
+#     .start()
+# )
 
 # Чекати на завершення обох запитів
 # console_query.awaitTermination(1000)  # Очікувати завершення запиту протягом 1000 секунд
@@ -156,7 +156,7 @@ query = (
 )
 
 # console_query.awaitTermination(1000)  # Очікувати завершення запиту протягом 1000 секунд
-file_query.awaitTermination(1000)
+# file_query.awaitTermination(1000)
 query.awaitTermination(1000)
 # Чекати на завершення обох запитів
 
