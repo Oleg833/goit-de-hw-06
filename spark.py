@@ -130,7 +130,7 @@ file_query = (
 # file_query.awaitTermination(1000)
 
 
-# uuid_udf = udf(lambda: str(uuid.uuid4()), StringType())
+uuid_udf = udf(lambda: str(uuid.uuid4()), StringType())
 
 prepare_to_kafka_df = valid_alerts.withColumn("key", uuid_udf()).select(
     col("key"),
