@@ -96,7 +96,7 @@ query_all_alerts.awaitTermination()
 
 # # Для дебагінгу, перевіримо, що дані декодуються правильно
 # query = (
-#     valid_alerts.writeStream.outputMode("append")
+#     valid_alerts.writeStream.outputMode("complete")
 #     .format("console")
 #     .option("truncate", False)
 #     .start()
@@ -119,6 +119,7 @@ query_all_alerts.awaitTermination()
 #         )
 #     ).alias("value"),
 # )
+
 
 # query = (
 #     prepare_to_kafka_df.writeStream.trigger(processingTime="30 seconds")
