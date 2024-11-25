@@ -16,8 +16,20 @@ spark = (
     .master("local[*]")
     .config("spark.sql.debug.maxToStringFields", "200")
     .config("spark.sql.columnNameLengthThreshold", "200")
+    .config(
+        "spark.sql.broadcastTimeout", "1000"
+    )  # Збільшити час очікування до 600 секунд
     .getOrCreate()
 )
+
+
+# spark = (
+#     SparkSession.builder.appName("KafkaStreaming")
+#     .master("local[*]")
+#     .config("spark.sql.debug.maxToStringFields", "200")
+#     .config("spark.sql.columnNameLengthThreshold", "200")
+#     .getOrCreate()
+# )
 
 alerts_df = spark.read.csv("alerts_conditions.csv", header=True)
 
@@ -91,13 +103,13 @@ valid_alerts = (
 #     .start()
 # )
 
-console_query = (
-    valid_alerts.writeStream.outputMode("append")  # Записувати тільки нові дані
-    .format("console")  # Формат виводу — консоль
-    .option("truncate", False)  # Показувати повні дані без скорочення
-    .trigger(once=True)  # Виконати обробку лише один раз
-    .start()
-)
+# console_query = (
+#     valid_alerts.writeStream.outputMode("append")  # Записувати тільки нові дані
+#     .format("console")  # Формат виводу — консоль
+#     .option("truncate", False)  # Показувати повні дані без скорочення
+#     .trigger(once=True)  # Виконати обробку лише один раз
+#     .start()
+# )
 
 
 # Збереження результатів у файл (у поточний каталог)
@@ -114,36 +126,40 @@ file_query = (
 )
 
 # Чекати на завершення обох запитів
-console_query.awaitTermination(1000)  # Очікувати завершення запиту протягом 1000 секунд
-file_query.awaitTermination()
+# console_query.awaitTermination(1000)  # Очікувати завершення запиту протягом 1000 секунд
+# file_query.awaitTermination(1000)
 
 
 # uuid_udf = udf(lambda: str(uuid.uuid4()), StringType())
 
-# prepare_to_kafka_df = valid_alerts.withColumn("key", uuid_udf()).select(
-#     col("key"),
-#     to_json(
-#         struct(
-#             col("window"),
-#             col("t_avg"),
-#             col("h_avg"),
-#             col("code"),
-#             col("message"),
-#             col("timestamp"),
-#         )
-#     ).alias("value"),
-# )
+prepare_to_kafka_df = valid_alerts.withColumn("key", uuid_udf()).select(
+    col("key"),
+    to_json(
+        struct(
+            col("window"),
+            col("t_avg"),
+            col("h_avg"),
+            col("code"),
+            col("message"),
+            col("timestamp"),
+        )
+    ).alias("value"),
+)
 
-# # Для дебагінгу, перевіримо, що дані декодуються правильно
-# query = (
-#     prepare_to_kafka_df.writeStream.outputMode("append")
-#     .format("console")
-#     .option("truncate", False)
-#     .start()
-#     .awaitTermination()
-# )
+# Для дебагінгу, перевіримо, що дані декодуються правильно
+query = (
+    prepare_to_kafka_df.writeStream.outputMode("append")
+    .format("console")
+    .option("truncate", False)
+    .start()
+    .awaitTermination()
+)
 
-# query.awaitTermination()
+# console_query.awaitTermination(1000)  # Очікувати завершення запиту протягом 1000 секунд
+file_query.awaitTermination(1000)
+query.awaitTermination(1000)
+# Чекати на завершення обох запитів
+
 
 # query = (
 #     prepare_to_kafka_df.writeStream.trigger(processingTime="30 seconds")
