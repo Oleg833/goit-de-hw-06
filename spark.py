@@ -38,7 +38,7 @@ df = (
         "kafka.sasl.jaas.config",
         'org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="VawEzo1ikLtrA8Ug8THa";',
     )
-    .option("subscribe", "building_sensors_oleh47")
+    .option("subscribe", "building_sensors_volodymyr17")
     .option("startingOffsets", "earliest")
     .option("maxOffsetsPerTrigger", "600")
     .load()
@@ -86,19 +86,19 @@ valid_alerts = (
 # from pyspark.sql.functions import col, to_json, struct, expr
 
 # # Використання monotonically_increasing_id() для створення ключа
-# prepare_to_kafka_df = valid_alerts.withColumn("key", expr("uuid()")).select(
-#     col("key"),
-#     to_json(
-#         struct(
-#             col("window"),
-#             col("t_avg"),
-#             col("h_avg"),
-#             col("code"),
-#             col("message"),
-#             col("timestamp"),
-#         )
-#     ).alias("value"),
-# )
+prepare_to_kafka_df = valid_alerts.withColumn("key", expr("uuid()")).select(
+    col("key"),
+    to_json(
+        struct(
+            col("window"),
+            col("t_avg"),
+            col("h_avg"),
+            col("code"),
+            col("message"),
+            col("timestamp"),
+        )
+    ).alias("value"),
+)
 
 # # Виведення результатів у консоль
 # console_query = (
@@ -150,3 +150,19 @@ valid_alerts = (
 #     kafka_query.stop()
 #     spark.stop()
 #     print("Стрим Kafka та Spark сесія завершені.")
+
+kafka_query = (
+    prepare_to_kafka_df.writeStream.format("kafka")
+    .outputMode("complete")  # записувати всі поточні результати у Kafka
+    .option("kafka.bootstrap.servers", "77.81.230.104:9092")
+    .option("topic", "alert_Kafka_topic")
+    .option("kafka.security.protocol", "SASL_PLAINTEXT")
+    .option("kafka.sasl.mechanism", "PLAIN")
+    .option(
+        "kafka.sasl.jaas.config",
+        "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
+    )
+    .option("checkpointLocation", "/tmp/checkpoints-3")
+    .start()
+    .awaitTermination()
+)
