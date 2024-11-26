@@ -76,33 +76,33 @@ avg_stats = (
 
 all_alerts = avg_stats.crossJoin(alerts_df)
 
-query_all_alerts = (
-    all_alerts.writeStream.outputMode("complete")
-    .format("console")
-    .option("truncate", False)
-    .start()
-)
-
-
-try:
-    query_all_alerts.awaitTermination()
-except KeyboardInterrupt:
-    print("Стрим Kafka був примусово зупинений користувачем.")
-except Exception as e:
-    print(f"Стрим Kafka завершився з помилкою: {e}")
-finally:
-    # Зупинка стріму та Spark сесії
-    query_all_alerts.stop()
-    spark.stop()
-    print("Стрим Kafka та Spark сесія завершені.")
-
-
-# valid_alerts = (
-#     all_alerts.where("t_avg > temperature_min AND t_avg < temperature_max")
-#     .union(all_alerts.where("h_avg > humidity_min AND h_avg < humidity_max"))
-#     .withColumn("timestamp", current_timestamp())  # Використання динамічного timestamp
-#     .drop("id", "humidity_min", "humidity_max", "temperature_min", "temperature_max")
+# query_all_alerts = (
+#     all_alerts.writeStream.outputMode("complete")
+#     .format("console")
+#     .option("truncate", False)
+#     .start()
 # )
+
+
+# try:
+#     query_all_alerts.awaitTermination()
+# except KeyboardInterrupt:
+#     print("Стрим Kafka був примусово зупинений користувачем.")
+# except Exception as e:
+#     print(f"Стрим Kafka завершився з помилкою: {e}")
+# finally:
+#     # Зупинка стріму та Spark сесії
+#     query_all_alerts.stop()
+#     spark.stop()
+#     print("Стрим Kafka та Spark сесія завершені.")
+
+
+valid_alerts = (
+    all_alerts.where("t_avg > temperature_min AND t_avg < temperature_max")
+    .union(all_alerts.where("h_avg > humidity_min AND h_avg < humidity_max"))
+    .withColumn("timestamp", current_timestamp())  # Використання динамічного timestamp
+    .drop("id", "humidity_min", "humidity_max", "temperature_min", "temperature_max")
+)
 
 
 # # Для дебагінгу, перевіримо, що дані декодуються правильно
@@ -115,84 +115,23 @@ finally:
 
 # query.awaitTermination()
 
-# uuid_udf = udf(lambda: str(uuid.uuid4()), StringType())
 
-# prepare_to_kafka_df = valid_alerts.withColumn("key", uuid_udf()).select(
-#     col("key"),
-#     to_json(
-#         struct(
-#             col("window"),
-#             col("t_avg"),
-#             col("h_avg"),
-#             col("code"),
-#             col("message"),
-#             col("timestamp"),
-#         )
-#     ).alias("value"),
-# )
+# from pyspark.sql.functions import col, to_json, struct, expr
 
-
-# kafka_query = (
-#     prepare_to_kafka_df.writeStream.trigger(processingTime="30 seconds")
-#     .outputMode("update")
-#     .format("kafka")
-#     .option("kafka.bootstrap.servers", "77.81.230.104:9092")
-#     .option("topic", "avg_alerts")
-#     .option("kafka.security.protocol", "SASL_PLAINTEXT")
-#     .option("kafka.sasl.mechanism", "PLAIN")
-#     .option(
-#         "kafka.sasl.jaas.config",
-#         "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
-#     )
-#     .option("checkpointLocation", "/tmp/checkpoints-7")
-#     .start()
-# )
-
-# try:
-#     kafka_query.awaitTermination()
-# except KeyboardInterrupt:
-#     print("Стрим Kafka був примусово зупинений користувачем.")
-# except Exception as e:
-#     print(f"Стрим Kafka завершився з помилкою: {e}")
-# finally:
-#     # Зупинка стріму та Spark сесії
-#     kafka_query.stop()
-#     spark.stop()
-#     print("Стрим Kafka та Spark сесія завершені.")
-
-
-# kafka_query = (
-#     prepare_to_kafka_df.writeStream.format("kafka")
-#     .outputMode("append")  # Тільки нові записи додаються в Kafka
-#     .option("kafka.bootstrap.servers", "77.81.230.104:9092")
-#     .option("topic", "alert_Kafka_topic")
-#     .option("kafka.security.protocol", "SASL_PLAINTEXT")
-#     .option("kafka.sasl.mechanism", "PLAIN")
-#     .option(
-#         "kafka.sasl.jaas.config",
-#         "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
-#     )
-#     .option("checkpointLocation", "/checkpoints/prepare_to_kafka")
-#     .start()
-# )
-
-
-# kafka_query = (
-#     prepare_to_kafka_df.writeStream.trigger(processingTime="30 seconds")
-#     .outputMode("update")  # Лише зміни відправляються (оновлюються)
-#     .format("kafka")
-#     .option("kafka.bootstrap.servers", "77.81.230.104:9092")
-#     .option("topic", "alert_Kafka_topic")
-#     .option("kafka.security.protocol", "SASL_PLAINTEXT")
-#     .option("kafka.sasl.mechanism", "PLAIN")
-#     .option(
-#         "kafka.sasl.jaas.config",
-#         "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
-#     )
-#     .option("checkpointLocation", "/tmp/checkpoints-7")
-#     .start()
-#     .awaitTermination()
-# )
+# Використання monotonically_increasing_id() для створення ключа
+prepare_to_kafka_df = valid_alerts.withColumn("key", expr("uuid()")).select(
+    col("key"),
+    to_json(
+        struct(
+            col("window"),
+            col("t_avg"),
+            col("h_avg"),
+            col("code"),
+            col("message"),
+            col("timestamp"),
+        )
+    ).alias("value"),
+)
 
 # # Виведення результатів у консоль
 # console_query = (
@@ -213,5 +152,112 @@ finally:
 # finally:
 #     # Зупинка стріму та Spark сесії
 #     console_query.stop()
+#     spark.stop()
+#     print("Стрим Kafka та Spark сесія завершені.")
+
+
+# kafka_query = (
+#     prepare_to_kafka_df.writeStream.format("kafka")
+#     .outputMode("complete")  # Тільки нові записи додаються в Kafka
+#     .option("kafka.bootstrap.servers", "77.81.230.104:9092")
+#     .option("topic", "alert_Kafka_topic")
+#     .option("kafka.security.protocol", "SASL_PLAINTEXT")
+#     .option("kafka.sasl.mechanism", "PLAIN")
+#     .option(
+#         "kafka.sasl.jaas.config",
+#         "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
+#     )
+#     .option("checkpointLocation", "/checkpoints/prepare_to_kafka")
+#     .start()
+# )
+
+# try:
+#     kafka_query.awaitTermination()
+# except KeyboardInterrupt:
+#     print("Стрим Kafka був примусово зупинений користувачем.")
+# except Exception as e:
+#     print(f"Стрим Kafka завершився з помилкою: {e}")
+# finally:
+#     # Зупинка стріму та Spark сесії
+#     kafka_query.stop()
+#     spark.stop()
+#     print("Стрим Kafka та Spark сесія завершені.")
+
+
+# kafka_query = (
+#     prepare_to_kafka_df.writeStream.trigger(processingTime="30 seconds")
+#     .outputMode("update")  # Лише зміни відправляються (оновлюються)
+#     .format("kafka")
+#     .option("kafka.bootstrap.servers", "77.81.230.104:9092")
+#     .option("topic", "alert_Kafka_topic")
+#     .option("kafka.security.protocol", "SASL_PLAINTEXT")
+#     .option("kafka.sasl.mechanism", "PLAIN")
+#     .option(
+#         "kafka.sasl.jaas.config",
+#         "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
+#     )
+#     .option("checkpointLocation", "/tmp/checkpoints-7")
+#     .start()
+#     .awaitTermination()
+# )
+
+# kafka_query = (
+#     prepare_to_kafka_df.writeStream.trigger(processingTime="30 seconds")
+#     .outputMode("append")
+#     .format("kafka")
+#     .option("kafka.bootstrap.servers", "77.81.230.104:9092")
+#     .option("topic", "alert_Kafka_topic")
+#     .option("kafka.security.protocol", "SASL_PLAINTEXT")
+#     .option("kafka.sasl.mechanism", "PLAIN")
+#     .option(
+#         "kafka.sasl.jaas.config",
+#         "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
+#     )
+#     .option("checkpointLocation", "/tmp/checkpoints-7")
+#     .start()
+# )
+
+# Відправлення даних до Kafka
+# kafka_query = (
+#     prepare_to_kafka_df.writeStream.format("kafka")
+#     .option("kafka.bootstrap.servers", "77.81.230.104:9092")  # Адр вашого Kafka брокера
+#     .option("topic", "alert_Kafka_topic")  # Ім'я топіка, у який потрібно надсилати дані
+#     .option("kafka.security.protocol", "SASL_PLAINTEXT")
+#     .option("kafka.sasl.mechanism", "PLAIN")
+#     .option(
+#         "kafka.sasl.jaas.config",
+#         "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
+#     )
+#     .option("checkpointLocation", "/checkpoints/prepare_to_kafka")
+#     .outputMode("complete")  # записувати всі поточні результати у Kafka
+#     .start()
+# )
+
+
+kafka_query = (
+    prepare_to_kafka_df.writeStream.format("kafka")
+    .option("kafka.bootstrap.servers", "77.81.230.104:9092")
+    .option("topic", "alert_Kafka_topic")
+    .option("kafka.security.protocol", "SASL_PLAINTEXT")
+    .option("kafka.sasl.mechanism", "PLAIN")
+    .option(
+        "kafka.sasl.jaas.config",
+        "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
+    )
+    .option("checkpointLocation", "/tmp/checkpoints-3")
+    .start()
+    .awaitTermination()
+)
+
+
+# try:
+#     kafka_query.awaitTermination()
+# except KeyboardInterrupt:
+#     print("Стрим Kafka був примусово зупинений користувачем.")
+# except Exception as e:
+#     print(f"Стрим Kafka завершився з помилкою: {e}")
+# finally:
+#     # Зупинка стріму та Spark сесії
+#     kafka_query.stop()
 #     spark.stop()
 #     print("Стрим Kafka та Spark сесія завершені.")
