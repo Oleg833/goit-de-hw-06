@@ -105,21 +105,6 @@ valid_alerts = (
 # )
 
 
-# uuid_udf = udf(lambda: str(uuid.uuid4()), StringType())
-
-# prepare_to_kafka_df = valid_alerts.withColumn("key", uuid_udf()).select(
-#     col("key"),
-#     to_json(
-#         struct(
-#             col("window"),
-#             col("t_avg"),
-#             col("h_avg"),
-#             col("code"),
-#             col("message"),
-#             col("timestamp"),
-#         )
-#     ).alias("value"),
-# )
 from pyspark.sql.functions import col, to_json, struct, expr
 
 # Використання monotonically_increasing_id() для створення ключа
@@ -137,6 +122,36 @@ prepare_to_kafka_df = valid_alerts.withColumn("key", expr("uuid()")).select(
     ).alias("value"),
 )
 
+# Відправлення даних до Kafka
+kafka_query = (
+    prepare_to_kafka_df.writeStream.format("kafka")
+    .option("kafka.bootstrap.servers", "77.81.230.104:9092")  # Адр вашого Kafka брокера
+    .option("topic", "alert_Kafka_topic")  # Ім'я топіка, у який потрібно надсилати дані
+    .option("kafka.security.protocol", "SASL_PLAINTEXT")
+    .option("kafka.sasl.mechanism", "PLAIN")
+    .option(
+        "kafka.sasl.jaas.config",
+        "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
+    )
+    .option("checkpointLocation", "./checkpoints/prepare_to_kafka")
+    .outputMode("complete")  # Записувати тільки нові дані, що з'явилися у стрімі
+    .start()
+)
+
+
+# Виведення результатів у консоль
+console_query = (
+    prepare_to_kafka_df.writeStream.outputMode(
+        "complete"
+    )  # Записувати тільки нові дані
+    .format("console")  # Формат виводу — консоль
+    .option("truncate", False)  # Показувати повні дані без скорочення
+    .start()
+)
+
+console_query.awaitTermination(1000)
+kafka_query.awaitTermination(1000)
+
 
 # query = (
 #     prepare_to_kafka_df.writeStream.trigger(processingTime="30 seconds")
@@ -144,31 +159,25 @@ prepare_to_kafka_df = valid_alerts.withColumn("key", expr("uuid()")).select(
 #     .format("kafka")
 #     .option("kafka.bootstrap.servers", "77.81.230.104:9092")
 #     .option("topic", "alert_Kafka_topic")
-#     .option("kafka.security.protocol", "SASL_PLAINTEXT")
-#     .option("kafka.sasl.mechanism", "PLAIN")
-#     .option(
-#         "kafka.sasl.jaas.config",
-#         "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
-#     )
+# .option("kafka.security.protocol", "SASL_PLAINTEXT")
+# .option("kafka.sasl.mechanism", "PLAIN")
+# .option(
+#     "kafka.sasl.jaas.config",
+#     "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
+# )
 #     .option("checkpointLocation", "./tmp/checkpoints-7")
 #     .start()
 # )
 
 # query.awaitTermination()
 
-query = (
-    prepare_to_kafka_df.writeStream.trigger(processingTime="30 seconds")
-    .outputMode("update")
-    .format("kafka")
-    .option("kafka.bootstrap.servers", "77.81.230.104:9092")
-    .option("topic", "avg_alerts")
-    .option("kafka.security.protocol", "SASL_PLAINTEXT")
-    .option("kafka.sasl.mechanism", "PLAIN")
-    .option(
-        "kafka.sasl.jaas.config",
-        "org.apache.kafka.common.security.plain.PlainLoginModule required username='admin' password='VawEzo1ikLtrA8Ug8THa';",
-    )
-    .option("checkpointLocation", "/tmp/checkpoints-7")
-    .start()
-    .awaitTermination()
-)
+# Виведення результатів у консоль
+# console_query = (
+#     prepare_to_kafka_df.writeStream.outputMode(
+#         "complete"
+#     )  # Записувати тільки нові дані
+#     .format("console")  # Формат виводу — консоль
+#     .option("truncate", False)  # Показувати повні дані без скорочення
+#     .start()
+#     .awaitTermination()
+# )
